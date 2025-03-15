@@ -1,0 +1,1307 @@
+﻿<?php
+require_once 'includes/config.php';
+require_once 'admin/includes/functions.php';
+
+// VeritabanÄ± baÄŸlantÄ±sÄ±nÄ± kontrol et
+try {
+    $db->query("SELECT 1");
+} catch (PDOException $e) {
+    die("VeritabanÄ± baÄŸlantÄ± hatasÄ±: " . $e->getMessage());
+}
+
+// Sayfa ID'sini al
+$page_id = clean($_GET['id'] ?? '');
+
+// MenÃ¼ HTML'ini oluÅŸtur
+$menu_html = '';
+$stmt = $db->query("SELECT * FROM menus WHERE parent_id IS NULL AND status = 1 ORDER BY order_number ASC");
+$main_menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($main_menus as $main) {
+    // Alt menÃ¼leri kontrol et
+    $stmt = $db->prepare("SELECT * FROM menus WHERE parent_id = ? AND status = 1 ORDER BY order_number ASC");
+    $stmt->execute([$main['id']]);
+    $sub_menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($sub_menus)) {
+        // Alt menÃ¼sÃ¼ yoksa normal link
+        $menu_html .= '<li class="nav-item">';
+        if ($main['slug'] === 'anasayfa') {
+            $menu_html .= '<a class="nav-link" href="' . SITE_URL . '">' . clean($main['name']) . '</a>';
+        } else {
+            $menu_html .= '<a class="nav-link" href="' . SITE_URL . '/?id=' . $main['slug'] . '">' . clean($main['name']) . '</a>';
+        }
+        $menu_html .= '</li>';
+    } else {
+        // Alt menÃ¼sÃ¼ varsa dropdown
+        $menu_html .= '<li class="nav-item dropdown">';
+        $menu_html .= '<a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">' . clean($main['name']) . '</a>';
+        $menu_html .= '<ul class="dropdown-menu">';
+        foreach ($sub_menus as $sub) {
+            $menu_html .= '<li><a class="dropdown-item" href="' . SITE_URL . '/?id=' . $sub['slug'] . '">' . clean($sub['name']) . '</a></li>';
+        }
+        $menu_html .= '</ul>';
+        $menu_html .= '</li>';
+    }
+}
+
+// Sayfa iÃ§eriÄŸini yÃ¼kle
+if ($page_id) {
+    // Blog sayfasÄ± kontrolÃ¼
+    if ($page_id == 'blog') {
+        require_once 'blog.php';
+        exit;
+    }
+    
+    // Ä°letiÅŸim sayfasÄ± kontrolÃ¼
+    if ($page_id == 'contact' || $page_id == 'iletisim') {
+        $page_title = "Ä°letiÅŸim";
+        $meta_description = "SeÃ§kin Ajans ile iletiÅŸime geÃ§in";
+        $meta_keywords = "iletiÅŸim, adres, telefon, email";
+        
+        // Ä°letiÅŸim bilgilerini getir
+        $stmt = $db->query("SELECT * FROM contacts WHERE id = 1");
+        $contact = $stmt->fetch();
+        
+        require_once 'includes/header.php';
+        ?>
+        <!-- Ä°letiÅŸim BÃ¶lÃ¼mÃ¼ -->
+        <section class="contact-page py-5">
+            <div class="container">
+                <h1 class="text-center mb-5">Ä°letiÅŸim</h1>
+                <div class="row g-4 row-equal-height">
+                    <div class="col-md-6">
+                        <div class="contact-info p-4 bg-light rounded shadow-sm h-100">
+                            <h2 class="h4 mb-4">Ä°letiÅŸim Bilgileri</h2>
+                            
+                            <?php if (!empty($contact['address'])): ?>
+                            <div class="mb-4">
+                                <h3 class="h6 mb-2"><i class="fas fa-map-marker-alt me-2"></i>Adres</h3>
+                                <p class="ms-4 mb-0"><?php echo nl2br(clean($contact['address'])); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($contact['phone'])): ?>
+                            <div class="mb-4">
+                                <h3 class="h6 mb-2"><i class="fas fa-phone me-2"></i>Telefon</h3>
+                                <p class="ms-4 mb-0"><?php echo clean($contact['phone']); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($contact['email'])): ?>
+                            <div class="mb-4">
+                                <h3 class="h6 mb-2"><i class="fas fa-envelope me-2"></i>E-posta</h3>
+                                <p class="ms-4 mb-0"><?php echo clean($contact['email']); ?></p>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($contact['working_hours'])): ?>
+                            <div class="mb-4">
+                                <h3 class="h6 mb-2"><i class="fas fa-clock me-2"></i>Ã‡alÄ±ÅŸma Saatleri</h3>
+                                <p class="ms-4 mb-0"><?php echo nl2br(clean($contact['working_hours'])); ?></p>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($contact['map_embed'])): ?>
+                        <div class="map-container bg-light rounded shadow-sm h-100">
+                            <div class="ratio ratio-1x1">
+                                <?php echo $contact['map_embed']; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <style>
+        .row-equal-height {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        .row-equal-height > [class*='col-'] {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .contact-info i {
+            color: #0d6efd;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .map-container {
+            padding: 1rem;
+            overflow: hidden;
+        }
+        
+        .map-container .ratio {
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        @media (max-width: 767.98px) {
+            .map-container {
+                min-height: 300px;
+            }
+            
+            .map-container .ratio {
+                position: absolute;
+                top: 1rem;
+                left: 1rem;
+                right: 1rem;
+                bottom: 1rem;
+            }
+        }
+        </style>
+        <?php
+        require_once 'includes/footer.php';
+        exit;
+    }
+    
+    // MenÃ¼yÃ¼ bul
+    $stmt = $db->prepare("SELECT * FROM menus WHERE slug = ? AND status = 1 LIMIT 1");
+    $stmt->execute([$page_id]);
+    $menu = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($menu) {
+        // Sayfa baÅŸlÄ±ÄŸÄ±
+        $page_title = $menu['name'];
+
+        // ÃœrÃ¼nleri getir
+        $stmt = $db->prepare("
+            SELECT u.*, c.name as category_name 
+            FROM urunler u 
+            LEFT JOIN categories c ON u.category_id = c.id 
+            WHERE (u.main_menu = ? OR u.sub_menu = ?) 
+            AND u.status = 1 
+            ORDER BY u.created_at DESC
+        ");
+        $stmt->execute([$page_id, $page_id]);
+        $urunler = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Ä°Ã§eriÄŸi gÃ¶ster
+        require_once 'includes/header.php';
+        ?>
+        
+        <!-- Sayfa BaÅŸlÄ±ÄŸÄ± -->
+        <div class="container mt-5">
+            <h1 class="text-center mb-5"><?= htmlspecialchars($menu['name']) ?></h1>
+            
+            <?php if (isset($menu['content']) && !empty($menu['content'])): ?>
+                <div class="category-description mb-5">
+                    <?= $menu['content'] ?>
+                </div>
+                <?php endif; ?>
+
+            <!-- ÃœrÃ¼nler -->
+            <div class="row g-4">
+                <?php if ($urunler): ?>
+                    <?php foreach ($urunler as $urun): ?>
+                        <div class="col-md-4 col-lg-3">
+                            <div class="card h-100 product-card">
+                                    <?php if ($urun['image']): ?>
+                                        <?php
+                                        $image_name = htmlspecialchars($urun['image']);
+                                        $image_path = "uploads/urunler/{$image_name}";
+                                        $full_image_path = $_SERVER['DOCUMENT_ROOT'] . "/Seckin_ajans/" . $image_path;
+                                        $image_url = SITE_URL . '/' . $image_path;
+                                        
+                                        if (isset($_GET['debug'])) {
+                                            echo '<div class="alert alert-info">';
+                                            echo '<strong>Debug Bilgileri:</strong><br>';
+                                            echo 'Resim AdÄ±: ' . $image_name . '<br>';
+                                            echo 'Tam Yol: ' . $full_image_path . '<br>';
+                                            echo 'URL: ' . $image_url . '<br>';
+                                            echo 'Dosya Var MÄ±: ' . (file_exists($full_image_path) ? 'Evet' : 'HayÄ±r') . '<br>';
+                                            if (file_exists($full_image_path)) {
+                                                echo 'Dosya Boyutu: ' . filesize($full_image_path) . ' bytes<br>';
+                                                echo 'Dosya Ä°zinleri: ' . decoct(fileperms($full_image_path) & 0777);
+                                            }
+                                            echo '</div>';
+                                        }
+                                        ?>
+                                        <img src="<?php echo $image_url; ?>" 
+                                         class="card-img-top product-image" 
+                                             alt="<?php echo htmlspecialchars($urun['name']); ?>"
+                                             style="width: 100%; height: 200px; object-fit: contain; cursor: pointer;"
+                                         data-bs-toggle="modal"
+                                         data-bs-target="#imageModal"
+                                         data-image-src="<?php echo $image_url; ?>"
+                                         data-image-title="<?php echo htmlspecialchars($urun['name']); ?>"
+                                             onerror="this.onerror=null; this.src='<?php echo SITE_URL; ?>/assets/img/no-image.jpg';">
+                                    <?php else: ?>
+                                    <img src="<?php echo SITE_URL; ?>/assets/img/no-image.png" 
+                                             class="card-img-top" 
+                                             alt="Resim Yok"
+                                         style="height: 200px; object-fit: cover;">
+                                <?php endif; ?>
+                                
+                                <div class="card-body">
+                                    <h5 class="card-title"><?= htmlspecialchars($urun['name']) ?></h5>
+                                    <?php if (!empty($urun['description'])): ?>
+                                        <p class="card-text"><?= mb_substr(strip_tags($urun['description']), 0, 100) ?>...</p>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="card-footer bg-transparent border-top-0">
+                                    <a href="<?= SITE_URL ?>/product.php?slug=<?= $urun['slug'] ?>" class="btn btn-primary w-100">Detaylar</a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            Bu kategoride henÃ¼z Ã¼rÃ¼n bulunmamaktadÄ±r.
+                        </div>
+                    </div>
+                <?php endif; ?>
+                </div>
+            </div>
+            <?php
+            require_once 'includes/footer.php';
+        } else {
+        // MenÃ¼ bulunamadÄ±
+        header('Location: ' . SITE_URL);
+            exit;
+    }
+} else {
+    // Anasayfa iÃ§eriÄŸi
+    $page_title = $settings['site_title'];
+    require_once 'includes/header.php';
+
+    // Meta etiketleri
+    $meta_title = isset($settings['site_title']) ? $settings['site_title'] : 'SeÃ§kin Ajans';
+    $meta_description = isset($settings['site_description']) ? $settings['site_description'] : 'Matbaa ve Promosyon ÃœrÃ¼nleri';
+    $meta_keywords = isset($settings['site_keywords']) ? $settings['site_keywords'] : 'matbaa, promosyon, ajans';
+
+    // Aktif sliderlarÄ± getir (sliders tablosundan)
+    $stmt = $db->query("SELECT * FROM sliders WHERE status = 1 ORDER BY order_number ASC");
+    $sliders = $stmt->fetchAll();
+
+    // Son eklenen Ã¼rÃ¼nleri getir 
+    $stmt = $db->query("
+        SELECT p.*, c.name as category_name 
+        FROM new_products p 
+        LEFT JOIN categories c ON p.category_id = c.id 
+        WHERE p.status = 1 
+        ORDER BY p.created_at DESC 
+        LIMIT 8
+    ");
+    $latest_products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Kategorileri ve Ã¼rÃ¼n sayÄ±larÄ±nÄ± getir
+    $stmt = $db->query("
+        SELECT c.*, COUNT(u.id) as urun_sayisi 
+        FROM categories c 
+        LEFT JOIN urunler u ON c.id = u.category_id AND u.status = 1
+        WHERE c.parent_id IS NULL AND c.status = 1 
+        GROUP BY c.id 
+        ORDER BY c.order_number ASC
+    ");
+    $categories = $stmt->fetchAll(); 
+
+    // HakkÄ±mÄ±zda bilgilerini getir
+    $stmt = $db->query("SELECT * FROM about WHERE id = 1");
+    $about = $stmt->fetch();
+
+    // Ä°letiÅŸim bilgilerini getir
+    $stmt = $db->query("SELECT * FROM contacts WHERE id = 1");
+    $contact = $stmt->fetch();
+
+    // Son blog yazÄ±larÄ±nÄ± getir
+    $stmt = $db->query("SELECT * FROM blogs WHERE status = 1 ORDER BY created_at DESC LIMIT 3");
+    $latest_blogs = $stmt->fetchAll();
+
+    if (isset($_GET['id']) && $_GET['id'] === 'hakkimizda') {
+        include 'about.php';
+        exit();
+    }
+    ?>
+    
+    <!-- Slider -->
+    <?php if (!empty($sliders)): ?>
+    <section id="hero" class="hero-slider">
+        <div id="mainSlider" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-indicators">
+                <?php foreach ($sliders as $index => $slider): ?>
+                    <button type="button" data-bs-target="#mainSlider" data-bs-slide-to="<?php echo $index; ?>" <?php echo $index === 0 ? 'class="active"' : ''; ?> aria-label="Slide <?php echo $index + 1; ?>"></button>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="carousel-inner">
+                <?php foreach ($sliders as $index => $slider): ?>
+                    <div class="carousel-item <?php echo $index === 0 ? 'active' : ''; ?>">
+                        <img src="<?php echo SITE_URL . $slider['image']; ?>" class="d-block w-100" alt="<?php echo clean($slider['title']); ?>">
+                        <div class="carousel-caption animate__animated animate__fadeInUp">
+                            <?php if ($slider['title']): ?>
+                                <h2 class="slider-title"><?php echo clean($slider['title']); ?></h2>
+                            <?php endif; ?>
+                            <?php if ($slider['description']): ?>
+                                <p class="slider-description"><?php echo clean($slider['description']); ?></p>
+                            <?php endif; ?>
+                            <?php if ($slider['link']): ?>
+                                <a href="<?php echo $slider['link']; ?>" class="btn btn-primary slider-btn">Detaylar</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <button class="carousel-control-prev" type="button" data-bs-target="#mainSlider" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Önceki</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#mainSlider" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Sonraki</span>
+            </button>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <style>
+    /* Moderna TemasÄ± Benzeri Slider Stilleri */
+    .hero-slider {
+        position: relative;
+        margin-top: 0;
+        z-index: 1;
+    }
+    
+    #mainSlider {
+        margin-bottom: 2rem;
+    }
+    
+    .carousel-item {
+        height: 80vh;
+        min-height: 500px;
+        position: relative;
+    }
+    
+    .carousel-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: brightness(0.8);
+    }
+    
+    .carousel-caption {
+        background: rgba(13, 110, 253, 0.8);
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 600px;
+        margin: 0 auto;
+        bottom: 50%;
+        transform: translateY(50%);
+        backdrop-filter: blur(5px);
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    .slider-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #fff;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .slider-description {
+        font-size: 1.2rem;
+        margin-bottom: 1.5rem;
+        color: #fff;
+        line-height: 1.6;
+    }
+    
+    .slider-btn {
+        padding: 12px 30px;
+        font-size: 1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background-color: #fff;
+        color: #0d6efd;
+        border: none;
+        border-radius: 50px;
+        transition: all 0.3s ease;
+    }
+    
+    .slider-btn:hover {
+        background-color: #0a58ca;
+        color: #fff;
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .carousel-indicators {
+        bottom: 30px;
+    }
+    
+    .carousel-indicators button {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin: 0 5px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .carousel-indicators button.active {
+        background-color: #fff;
+        width: 14px;
+        height: 14px;
+        transform: translateY(-1px);
+    }
+    
+    .carousel-control-prev,
+    .carousel-control-next {
+        width: 50px;
+        height: 50px;
+        background-color: rgba(13, 110, 253, 0.7);
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .carousel-control-prev {
+        left: 20px;
+    }
+    
+    .carousel-control-next {
+        right: 20px;
+    }
+    
+    #mainSlider:hover .carousel-control-prev,
+    #mainSlider:hover .carousel-control-next {
+        opacity: 1;
+    }
+    
+    /* Mobil GÃ¶rÃ¼nÃ¼m */
+    @media (max-width: 768px) {
+        .carousel-item {
+            height: 60vh;
+            min-height: 400px;
+        }
+        
+        .carousel-caption {
+            padding: 20px;
+            max-width: 90%;
+        }
+        
+        .slider-title {
+            font-size: 1.8rem;
+        }
+        
+        .slider-description {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .slider-btn {
+            padding: 8px 20px;
+            font-size: 0.9rem;
+        }
+    }
+    </style>
+    <!-- Ana Sayfa Ä°Ã§eriÄŸi -->
+    <div class="container py-5">
+        <div class="row">
+            <!-- Slider veya Hero BÃ¶lÃ¼mÃ¼ -->
+            <div class="col-12 mb-5">
+                <div class="hero-section text-center">
+                    <h1 class="display-4 mb-4">SeÃ§kin Ajans'a HoÅŸ Geldiniz</h1>
+                    <p class="lead mb-4">Profesyonel matbaa ve promosyon Ã§Ã¶zÃ¼mleri iÃ§in doÄŸru adres</p>
+                    <a href="<?php echo SITE_URL; ?>/#contact" class="btn btn-primary btn-lg">Bizimle Ä°letiÅŸime GeÃ§in</a>
+                </div>
+            </div>
+            
+            <!-- Hizmetler -->
+            <div class="col-12 mb-5">
+                <h2 class="text-center mb-4">Hizmetlerimiz</h2>
+                <div class="row g-4">
+                    <?php
+                    // Aktif hizmetleri getir
+                    $stmt = $db->prepare("
+                        SELECT * FROM services 
+                        WHERE status = 1 
+                        ORDER BY order_number ASC
+                    ");
+                    $stmt->execute();
+                    $services = $stmt->fetchAll();
+                    
+                    foreach ($services as $service):
+                    ?>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="<?php echo clean($service['icon']); ?> fa-3x mb-3 text-primary"></i>
+                                <h3 class="card-title h5"><?php echo clean($service['name']); ?></h3>
+                                <img src="<?php echo SITE_URL; ?>/uploads/services/<?php echo htmlspecialchars($service['image']); ?>" 
+                                 class="card-img-top" 
+                                 alt="<?php echo htmlspecialchars($service['name']); ?>">
+                                <p class="card-text"><?php echo clean($service['description']); ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kategorileri listele -->
+ <section class="categories py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">ÃœrÃ¼n Kategorilerimiz</h2>
+            
+            <div class="row g-4">
+                <?php foreach($categories as $category): ?>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <?php if($category['image']): ?>
+                            <img src="<?php echo SITE_URL; ?>/uploads/categories/<?php echo htmlspecialchars($category['image']); ?>" 
+                                 class="card-img-top" 
+                                 alt="<?php echo htmlspecialchars($category['name']); ?>">
+                        <?php endif; ?>
+                        <div class="card-body">
+                            <h5 class="card-title"><?php echo htmlspecialchars($category['name']); ?></h5>
+                            <p class="card-text">
+                                <?php echo $category['urun_sayisi']; ?> Ã¼rÃ¼n
+                            </p>
+                            <?php if ($category['slug'] === 'anasayfa'): ?>
+                                <a href="<?php echo SITE_URL; ?>" class="btn btn-primary">Ä°ncele</a>
+                            <?php else: ?>
+                                <a href="<?php echo SITE_URL; ?>/?id=<?php echo $category['slug']; ?>" class="btn btn-primary">Ä°ncele</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- HakkÄ±mÄ±zda BÃ¶lÃ¼mÃ¼ -->
+    <section class="about-section py-5" id="about">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h2><?php echo clean($about['home_title'] ?? 'SeÃ§kin Ajans'); ?></h2>
+                    <p class="lead"><?php echo clean($about['home_subtitle'] ?? ''); ?></p>
+                    <p><?php echo nl2br(clean($about['home_content'] ?? '')); ?></p>
+                    <a href="<?php echo SITE_URL; ?>/?id=hakkimizda" class="btn btn-primary">DevamÄ±nÄ± Oku</a>
+                </div>
+                <div class="col-md-6">
+                    <?php if (!empty($about['home_image'])): ?>
+                        <img src="<?php echo SITE_URL . $about['home_image']; ?>" alt="<?php echo clean($about['home_title']); ?>" class="img-fluid rounded shadow">
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Son Eklenen ÃœrÃ¼nler -->
+    <section class="latest-products py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Son Eklenen ÃœrÃ¼nler</h2>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+                <?php
+                // Son eklenen Ã¼rÃ¼nleri getir
+                $stmt = $db->query("
+                    SELECT u.*, c.name as category_name 
+                    FROM urunler u 
+                    LEFT JOIN categories c ON u.category_id = c.id 
+                    WHERE u.status = 1 
+                    ORDER BY u.id DESC 
+                    LIMIT 8
+                ");
+                $latest_products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($latest_products as $urun):
+                ?>
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-img-top-wrapper">
+                            <?php if ($urun['image']): ?>
+                                <?php
+                                $image_name = htmlspecialchars($urun['image']);
+                                $image_path = "uploads/urunler/{$image_name}";
+                                $full_image_path = $_SERVER['DOCUMENT_ROOT'] . "/Seckin_ajans/" . $image_path;
+                                $image_url = SITE_URL . '/' . $image_path;
+                                
+                                if (isset($_GET['debug'])) {
+                                    echo '<div class="alert alert-info">';
+                                    echo '<strong>Debug Bilgileri:</strong><br>';
+                                    echo 'Resim AdÄ±: ' . $image_name . '<br>';
+                                    echo 'Tam Yol: ' . $full_image_path . '<br>';
+                                    echo 'URL: ' . $image_url . '<br>';
+                                    echo 'Dosya Var MÄ±: ' . (file_exists($full_image_path) ? 'Evet' : 'HayÄ±r') . '<br>';
+                                    if (file_exists($full_image_path)) {
+                                        echo 'Dosya Boyutu: ' . filesize($full_image_path) . ' bytes<br>';
+                                        echo 'Dosya Ä°zinleri: ' . decoct(fileperms($full_image_path) & 0777);
+                                    }
+                                    echo '</div>';
+                                }
+                                ?>
+                                <img src="<?php echo $image_url; ?>" 
+                                     class="card-img-top" 
+                                     alt="<?php echo htmlspecialchars($urun['name']); ?>"
+                                     style="width: 100%; height: 200px; object-fit: cover;"
+                                     data-bs-toggle="modal"
+                                     data-bs-target="#imageModal"
+                                     data-image-src="<?php echo $image_url; ?>"
+                                     data-image-title="<?php echo htmlspecialchars($urun['name']); ?>"
+                                     onerror="this.onerror=null; this.src='<?php echo SITE_URL; ?>/assets/img/no-image.jpg';">
+                            <?php else: ?>
+                                <img src="<?php echo SITE_URL; ?>/assets/img/no-image.jpg" 
+                                     class="card-img-top" 
+                                     alt="Resim Yok"
+                                     style="width: 100%; height: 200px; object-fit: cover;">
+                            <?php endif; ?>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title text-center"><?php echo htmlspecialchars($urun['name']); ?></h5>
+                            <?php if ($urun['description']): ?>
+                                <p class="card-text text-center"><?php echo htmlspecialchars(substr($urun['description'], 0, 100)); ?>...</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            
+        </div>
+    </section>
+
+    <!-- Son Blog YazÄ±larÄ± -->
+    <?php if ($latest_blogs): ?>
+    <section class="latest-blogs py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Son Blog YazÄ±larÄ±</h2>
+            <div class="row">
+                <?php foreach ($latest_blogs as $blog): ?>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-img-top-wrapper">
+                            <?php if ($blog['image']): ?>
+                                <img src="<?php echo SITE_URL . $blog['image']; ?>" class="card-img-top" alt="<?php echo clean($blog['title']); ?>">
+                            <?php else: ?>
+                                <img src="<?php echo SITE_URL; ?>/assets/img/no-image.jpg" class="card-img-top" alt="VarsayÄ±lan Blog GÃ¶rseli">
+                            <?php endif; ?>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title"><?php echo clean($blog['title']); ?></h5>
+                            <p class="card-text text-muted">
+                                <?php echo mb_substr(strip_tags($blog['content']), 0, 150) . '...'; ?>
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <?php echo date('d.m.Y', strtotime($blog['created_at'])); ?>
+                                </small>
+                                <a href="<?php echo SITE_URL; ?>/blog-detay/<?php echo $blog['slug']; ?>" 
+                                   class="btn btn-primary btn-sm"
+                                   onclick="event.preventDefault(); 
+                                            window.location.href = this.href;
+                                            gtag('event', 'blog_read', {
+                                                'blog_title': '<?php echo clean($blog['title']); ?>',
+                                                'blog_id': '<?php echo $blog['id']; ?>'
+                                            });">
+                                    DevamÄ±nÄ± Oku
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="text-center mt-4">
+                <a href="<?php echo SITE_URL; ?>/blog" class="btn btn-outline-primary">TÃ¼m YazÄ±larÄ± GÃ¶r</a>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Ä°letiÅŸim BÃ¶lÃ¼mÃ¼ -->
+    <section id="contact" class="contact-section py-5 bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h2>Ä°letiÅŸim</h2>
+                    <p class="lead">SorularÄ±nÄ±z iÃ§in bize ulaÅŸÄ±n</p>
+                    
+                    <?php if (!empty($contact['address'])): ?>
+                    <p><i class="fas fa-map-marker-alt me-2"></i><?php echo nl2br(clean($contact['address'])); ?></p>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($contact['phone'])): ?>
+                    <p><i class="fas fa-phone me-2"></i><?php echo clean($contact['phone']); ?></p>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($contact['email'])): ?>
+                    <p><i class="fas fa-envelope me-2"></i><?php echo clean($contact['email']); ?></p>
+                    <?php endif; ?>
+
+                    <?php if (!empty($contact['working_hours'])): ?>
+                    <p><i class="fas fa-clock me-2"></i></p>
+                    <?php echo nl2br(clean($contact['working_hours'])); ?>
+                    <?php endif; ?>
+                </div>
+                <div class="col-md-6">
+                    <?php if (!empty($contact['map_embed'])): ?>
+                        <div class="ratio ratio-16x9">
+                            <?php echo $contact['map_embed']; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- YukarÄ±/AÅŸaÄŸÄ± Hareket ButonlarÄ± -->
+    <div class="scroll-buttons">
+        <button id="scrollToTopBtn" class="scroll-btn scroll-to-top" title="YukarÄ± Ã‡Ä±k">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+        <button id="scrollToBottomBtn" class="scroll-btn scroll-to-bottom" title="AÅŸaÄŸÄ± Ä°n">
+            <i class="fas fa-arrow-down"></i>
+        </button>
+    </div>
+
+    <!-- Stil -->
+    <style>
+    .scroll-buttons {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .scroll-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: rgba(0, 0, 0, 0.5);
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .scroll-btn:hover {
+        background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    .scroll-btn.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .scroll-to-top {
+        transform: translateY(20px);
+    }
+
+    .scroll-to-bottom {
+        transform: translateY(-20px);
+    }
+
+    .scroll-btn.show {
+        transform: translateY(0);
+    }
+    </style>
+
+    <!-- Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const topBtn = document.getElementById('scrollToTopBtn');
+        const bottomBtn = document.getElementById('scrollToBottomBtn');
+        
+        // Scroll butonlarÄ±nÄ±n gÃ¶rÃ¼nÃ¼rlÃ¼ÄŸÃ¼nÃ¼ kontrol et
+        function toggleScrollButtons() {
+            const scrolled = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const fullHeight = document.documentElement.scrollHeight;
+            
+            // YukarÄ± Ã§Ä±kma butonu
+            if (scrolled > windowHeight / 2) {
+                topBtn.classList.add('show');
+            } else {
+                topBtn.classList.remove('show');
+            }
+            
+            // AÅŸaÄŸÄ± inme butonu
+            if (scrolled < (fullHeight - windowHeight * 1.5)) {
+                bottomBtn.classList.add('show');
+            } else {
+                bottomBtn.classList.remove('show');
+            }
+        }
+
+        // YukarÄ± Ã§Ä±k butonu tÄ±klama
+        topBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // AÅŸaÄŸÄ± in butonu tÄ±klama
+        bottomBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: document.documentElement.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+
+        // Scroll olayÄ±nÄ± dinle
+        window.addEventListener('scroll', toggleScrollButtons);
+        
+        // Sayfa yÃ¼klendiÄŸinde kontrol et
+        toggleScrollButtons();
+    });
+    </script>
+
+    <!-- Resim ModalÄ± -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="loading-spinner d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">YÃ¼kleniyor...</span>
+                        </div>
+                    </div>
+                    <div class="image-container">
+                        <img src="" id="modalImage" class="img-fluid" alt="">
+                    </div>
+                    <div class="zoom-controls">
+                        <button class="btn btn-sm btn-outline-light" onclick="zoomImage(-0.1)">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <span class="zoom-level">100%</span>
+                        <button class="btn btn-sm btn-outline-light" onclick="zoomImage(0.1)">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    /* Modal stilleri */
+    .modal-dialog.modal-lg {
+        max-width: 95%;
+        margin: 1rem auto;
+        height: 95vh;
+    }
+
+    .modal-content {
+        background-color: rgba(0, 0, 0, 0.98);
+        border: none;
+        height: 100%;
+        border-radius: 12px;
+    }
+
+    .modal-header {
+        border-bottom: none;
+        padding: 1.5rem;
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 12px 12px 0 0;
+    }
+
+    .modal-header .modal-title {
+        color: #fff;
+        font-size: 1.25rem;
+    }
+
+    .modal-header .btn-close {
+        background-color: #fff;
+        opacity: 0.8;
+        padding: 0.75rem;
+    }
+
+    .modal-body {
+        padding: 0;
+        position: relative;
+        background-color: transparent;
+        height: calc(100% - 70px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .image-container {
+        position: relative;
+        overflow: hidden;
+        margin: 0 auto;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(255,255,255,0.05);
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .modal-body img {
+        max-height: 90vh;
+        max-width: 95%;
+        object-fit: contain;
+        transition: transform 0.3s ease-out;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .loading-spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1;
+    }
+
+    .loading-spinner .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        border-width: 0.25rem;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .zoom-controls {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1060;
+        background-color: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 30px;
+        display: flex;
+        gap: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        backdrop-filter: blur(5px);
+    }
+
+    .zoom-controls button {
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        background-color: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+    }
+
+    .zoom-controls button:hover {
+        background-color: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .zoom-level {
+        color: #fff;
+        margin: 0 15px;
+        font-size: 1rem;
+        min-width: 70px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    /* Mobil cihazlar iÃ§in dÃ¼zenleme */
+    @media (max-width: 768px) {
+        .modal-dialog.modal-lg {
+            max-width: 100%;
+            margin: 0;
+            height: 100vh;
+        }
+        
+        .modal-body img {
+            max-height: 80vh;
+        }
+        
+        .zoom-controls {
+            bottom: 20px;
+            padding: 8px;
+        }
+    }
+
+    /* Zoom efekti iÃ§in ek stiller */
+    .modal-body img.zoomed {
+        cursor: move;
+    }
+
+    .modal-body img.transition-disabled {
+        transition: none !important;
+    }
+
+    .product-image {
+        transition: transform 0.3s ease-in-out;
+        cursor: pointer;
+        height: 200px;
+        object-fit: contain !important;
+        padding: 10px;
+        background-color: #fff;
+    }
+
+    .product-image:hover {
+        transform: scale(1.05);
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        transform: translateY(-5px);
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        background-color: #fff;
+    }
+
+    /* Modal iÃ§in CSS */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .modal-content {
+        margin: auto;
+        display: block;
+        max-width: 90%;
+        max-height: 90vh;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .close {
+        position: absolute;
+        right: 25px;
+        top: 10px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    /* Card iÃ§indeki resime hover effect ve pointer cursor ekleyelim */
+    .card img {
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .card img:hover {
+        opacity: 0.8;
+    }
+
+    /* Blog post stili */
+    .blog-post,
+    article.blog-post,
+    .container .blog-post,
+    .row .blog-post {
+        background: transparent !important;
+    }
+
+    [data-bs-theme="dark"] .blog-post {
+        background: transparent !important;
+    }
+    </style>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const imageModal = document.getElementById('imageModal');
+        const bsImageModal = new bootstrap.Modal(imageModal);
+        const modalImg = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('imageModalLabel');
+        const spinner = document.querySelector('.loading-spinner');
+        let currentZoom = 1;
+        let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
+
+        // TÃ¼m Ã¼rÃ¼n resimlerine tÄ±klama olayÄ± ekle
+        document.querySelectorAll('.product-image').forEach(img => {
+            img.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const title = this.getAttribute('data-image-title');
+                const src = this.getAttribute('data-image-src');
+
+                // BaÅŸlÄ±ÄŸÄ± ayarla
+                modalTitle.textContent = title;
+                
+                // YÃ¼kleme gÃ¶stergesini gÃ¶ster
+                spinner.classList.remove('d-none');
+                modalImg.classList.add('d-none');
+                
+                // Resmi yÃ¼kle
+                modalImg.onload = function() {
+                    spinner.classList.add('d-none');
+                    modalImg.classList.remove('d-none');
+                    resetZoom();
+                };
+                
+                modalImg.src = src;
+                bsImageModal.show();
+            });
+        });
+
+        // Zoom fonksiyonlarÄ±
+        window.zoomImage = function(factor) {
+            const prevZoom = currentZoom;
+            currentZoom = Math.max(0.5, Math.min(4, currentZoom + factor));
+            
+            if (prevZoom !== currentZoom) {
+                modalImg.style.transform = `scale(${currentZoom}) translate(${translateX}px, ${translateY}px)`;
+                updateZoomLevel();
+            }
+        };
+
+        function updateZoomLevel() {
+            const zoomLevel = document.querySelector('.zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+            }
+        }
+
+        function resetZoom() {
+            currentZoom = 1;
+            translateX = 0;
+            translateY = 0;
+            modalImg.style.transform = 'scale(1) translate(0, 0)';
+            updateZoomLevel();
+        }
+
+        // SÃ¼rÃ¼kleme iÅŸlemleri
+        modalImg.addEventListener('mousedown', startDragging);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDragging);
+        modalImg.addEventListener('touchstart', startDragging);
+        document.addEventListener('touchmove', drag);
+        document.addEventListener('touchend', stopDragging);
+
+        function startDragging(e) {
+            if (currentZoom > 1) {
+                isDragging = true;
+                modalImg.classList.add('transition-disabled');
+                
+                if (e.type === 'mousedown') {
+                    startX = e.clientX - translateX;
+                    startY = e.clientY - translateY;
+                } else if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - translateX;
+                    startY = e.touches[0].clientY - translateY;
+                }
+            }
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            let clientX, clientY;
+            if (e.type === 'mousemove') {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            } else if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            translateX = clientX - startX;
+            translateY = clientY - startY;
+
+            // SÄ±nÄ±rlarÄ± kontrol et
+            const maxTranslate = 100 * (currentZoom - 1);
+            translateX = Math.max(-maxTranslate, Math.min(maxTranslate, translateX));
+            translateY = Math.max(-maxTranslate, Math.min(maxTranslate, translateY));
+
+            modalImg.style.transform = `scale(${currentZoom}) translate(${translateX}px, ${translateY}px)`;
+        }
+
+        function stopDragging() {
+            isDragging = false;
+            modalImg.classList.remove('transition-disabled');
+        }
+
+        // Modal kapandÄ±ÄŸÄ±nda temizle
+        imageModal.addEventListener('hidden.bs.modal', function() {
+            resetZoom();
+            modalImg.src = '';
+        });
+
+        // Klavye kontrolleri
+        document.addEventListener('keydown', function(e) {
+            if (imageModal.classList.contains('show')) {
+                switch(e.key) {
+                    case '+':
+                    case '=':
+                        zoomImage(0.1);
+                        break;
+                    case '-':
+                        zoomImage(-0.1);
+                        break;
+                    case 'Escape':
+                        resetZoom();
+                        break;
+                }
+            }
+        });
+
+        // Mouse wheel zoom
+        imageModal.addEventListener('wheel', function(e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY * -0.01;
+                zoomImage(delta);
+            }
+        }, { passive: false });
+    });
+    </script>
+
+    <?php
+    require_once 'includes/footer.php';
+}
+?>
+
+<script src="/js/modal.js"></script>

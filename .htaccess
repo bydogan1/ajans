@@ -1,0 +1,95 @@
+# PHP hata raporlamasını aç (geliştirme ortamı için)
+php_flag display_errors on
+
+# Dizin listelemeyi kapat
+Options -Indexes
+
+# Varsayılan karakter seti
+AddDefaultCharset UTF-8
+
+# MIME türlerini ayarla
+AddType application/x-httpd-php .php
+AddType text/css .css
+AddType text/javascript .js
+AddType image/x-icon .ico
+AddType image/svg+xml .svg
+AddType application/font-woff .woff
+AddType application/font-woff2 .woff2
+AddType image/jpeg .jpg .jpeg
+AddType image/png .png
+AddType image/gif .gif
+
+# Güvenlik başlıkları
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # CORS ayarları
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
+
+# Sıkıştırma
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# Önbellek ayarları
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Varsayılan önbellek süresi
+    ExpiresDefault "access plus 1 month"
+    
+    # Doküman türlerine göre önbellek süreleri
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+</IfModule>
+
+# URL yönlendirmeleri
+RewriteEngine On
+RewriteBase /Seckin_ajans/
+
+# Ana dizin için yönlendirme
+RewriteRule ^$ index.php [L]
+
+# Blog sayfaları için yönlendirmeler
+RewriteRule ^blog$ blog.php [L]
+RewriteRule ^blog-detay/([^/]+)$ blog-detay.php?slug=$1 [L,QSA]
+
+# Kategori ve ürün sayfaları için yönlendirmeler
+RewriteRule ^kategori/([^/]+)$ index.php?id=$1 [L,QSA]
+RewriteRule ^urun/([^/]+)$ urun-detay.php?slug=$1 [L,QSA]
+
+# Diğer sayfalar için yönlendirme
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?id=$1 [QSA,L]
+
+# Hata sayfaları
+ErrorDocument 404 /Seckin_ajans/404.php
+ErrorDocument 403 /Seckin_ajans/403.php
+ErrorDocument 500 /Seckin_ajans/500.php
+
+RewriteCond %{QUERY_STRING} ^id=hakkimizda$ [NC]
+RewriteRule ^(.*)$ about.php [L]

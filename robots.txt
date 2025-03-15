@@ -1,0 +1,52 @@
+User-agent: *
+Allow: /
+Allow: /kategori/
+Allow: /urun/
+Allow: /hakkimizda
+Allow: /iletisim
+
+Disallow: /admin/
+Disallow: /includes/
+Disallow: /Assets/js/
+Disallow: /Assets/css/
+Disallow: /.git/
+Disallow: /vendor/
+Disallow: /node_modules/
+Disallow: /*.php$
+Disallow: /*.js$
+Disallow: /*.css$
+Disallow: /*.json$
+Disallow: /*.txt$
+Disallow: /*.md$
+Disallow: /*.yml$
+Disallow: /*.yaml$
+Disallow: /*.lock$
+Disallow: /*.log$
+Disallow: /*.sql$
+Disallow: /*.htaccess$
+Disallow: /cgi-bin/
+Disallow: /*?*
+
+Sitemap: https://www.seckinajans.com/sitemap.xml
+
+# Arama motorları için özel kurallar
+User-agent: Googlebot
+Crawl-delay: 10
+
+User-agent: Bingbot
+Crawl-delay: 10
+
+User-agent: Yandex
+Crawl-delay: 10
+
+# Resim arama motorları için kurallar
+User-agent: Googlebot-Image
+Allow: /uploads/
+Allow: /images/
+Disallow: /admin/
+Disallow: /includes/
+Disallow: /Assets/
+
+# Mobil arama motorları için kurallar
+User-agent: Googlebot-Mobile
+Allow: / 
